@@ -1,5 +1,3 @@
-/*
- * This is a Linux kernel module for interfacing with the TDT4258 game pad.
  */
 
 #include <linux/kernel.h>
@@ -10,6 +8,7 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/interrupt.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
@@ -76,6 +75,13 @@ static struct file_operations gamepad_fops = {
 	.release = gamepad_release,
 };
 
+static irqreturn_t handeler(int irq,void * dev_id,struct pt_reqs * regs){
+	
+	unsigned int gpio_if = ioread32((unsigned char*)device.gpio_memory + GPIO_IF);	
+	iowrite32(gpio_if, (unsigned char*)device.gpio_memory + GPIO_IFC);	
+	
+}
+
 static int __init gamepad_init(void)
 {
 	struct resource *gpio_memory_resource;
@@ -110,10 +116,13 @@ static int __init gamepad_init(void)
 	iowrite32(2, (unsigned char*)device.gpio_memory + GPIO_CTRL);	
 	iowrite32(0x33333333, (unsigned char*)device.gpio_memory + GPIO_MODEL);	
 	iowrite32(0xff, (unsigned char*)device.gpio_memory + GPIO_DOUT);	
+	
+	iowrite32(0x22222222, (unsigned char*)device.gpio_memory + GPIO_EXTIPSEll);	
+	iowrite32(0xff, (unsigned char*)device.gpio_memory + GPIO_EXTIFALL);	
 
 	device.class = class_create(THIS_MODULE, MODNAME);
 	device_create(device.class, NULL, device.dev_id, NULL, MODNAME);
-
+	
 	// Enable chrdev
 	err = cdev_add(&device.cdev, device.dev_id, 1);
 
@@ -122,9 +131,29 @@ static int __init gamepad_init(void)
 		return err;
 	}
 
-	printk(KERN_INFO MODNAME ": Initialized\n");
+		
+	unsigned long flags = 0;
+	//irq even buttons
+	err = request_irq(17,*handeler,flags,MODNAME,device.dev_id);
+        if (err != 0) {
+	      printk(KERN_WARNING MODNAME ": Error %i while registering interrupt for even buttons.\n", err);
+	      return err;
+	}
+	//irq odd buttons
+	err = request_irq(18,*handeler,flags,MODNAME,decive.dev_id);
+        if (err != 0) {
+	      printk(KERN_WARNING MODNAME ": Error %i while registerign interrupt for odd buttons.\n", err);
+	      return err;
+	}
+	//setting up io registers
+	iowrite32(0xff, (unsigned char*)device.gpio_memory + GPIO_IEN);	
 
-	return 0;
+	iowrite32(0, (unsigned char*)device.gpio_memory + GPIO_IF);	
+
+	iowrite32(0, (unsigned char*)device.gpio_memory + GPIO_IFC);	
+
+	printk(KERN_INFO MODNAME ": Initialized\n");
+	
 }
 
 static void __exit gamepad_cleanup(void)
@@ -135,7 +164,9 @@ static void __exit gamepad_cleanup(void)
 	unregister_chrdev_region(device.dev_id, 1);
 	iounmap(device.gpio_memory);
 	release_mem_region(GPIO_PC_BASE, 9*sizeof(uint32_t));
-
+	//free irq
+	free_irq(17,device.dev_id)
+	free_irq(18,device.dev_id)
 	printk(KERN_INFO MODNAME ": Cleanup complete\n");
 }
 
