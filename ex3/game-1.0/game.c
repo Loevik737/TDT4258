@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -9,23 +10,60 @@
 #include <linux/fb.h>
 #include <unistd.h>
 
-#define FB_WIDTH 320
-#define FB_HEIGHT 240
+/* enable clock_* functions */
+/* #define __USE_POSIX199309 */
+/* #define __USE_XOPEN2K */
+#include <time.h>
 
-//typedef uint16_t Color;
+#include "snake.h"
+#include "utils.h"
 
-#define FB_SIZE (FB_WIDTH*FB_HEIGHT*sizeof(uint16_t))
+#define FB_SIZE (DISPLAY_WIDTH*DISPLAY_HEIGHT*sizeof(uint16_t))
 
-#define COLOR(r, g, b) ((((uint16_t)r & 0x1f) << 11) | ((uint16_t)(g & 0x3f) << 5) | ((uint16_t)b & 0x1f))
+#define NSEC (1000000000)
 
-#define RMAX (0x1f)
-#define GMAX (0x3f)
-#define BMAX (0x1f)
+static const struct timespec frame_duration = { 0, NSEC / FRAME_RATE };
 
-#define RED   (COLOR(RMAX,    0,    0))
-#define GREEN (COLOR(   0, GMAX,    0))
-#define BLUE  (COLOR(   0,    0, BMAX))
-#define WHITE (COLOR(RMAX, GMAX, BMAX))
+static struct timespec read_time()
+{
+	struct timespec time;
+	int error;
+
+	error = clock_gettime(CLOCK_MONOTONIC, &time);
+
+	/*
+	   NOTE: We should already have checked that we support
+	   CLOCK_MONOTONIC_RAW, so we should not receive EINVAL error. It
+	   can return EFAULT if the second param is outside the memory we
+	   can access. This would be a programming error.
+	 */
+	assert(!error);
+
+	return time;
+}
+
+static struct timespec timespec_add(struct timespec begin, struct timespec end)
+{
+	struct timespec temp;
+	temp.tv_sec = begin.tv_sec + end.tv_sec;
+	temp.tv_nsec = begin.tv_nsec + end.tv_nsec;
+	temp.tv_sec += begin.tv_nsec / NSEC;
+	temp.tv_nsec %= NSEC;
+	return temp;
+}
+
+static struct timespec timespec_diff(struct timespec begin, struct timespec end)
+{
+	struct timespec temp;
+    if ((end.tv_nsec - begin.tv_nsec) < 0) {
+        temp.tv_sec = end.tv_sec - begin.tv_sec - 1;
+        temp.tv_nsec = end.tv_nsec - begin.tv_nsec + 1000000000;
+    } else {
+        temp.tv_sec = end.tv_sec - begin.tv_sec;
+        temp.tv_nsec = end.tv_nsec - begin.tv_nsec;
+	}
+	return temp;
+}
 
 int main(int argc, char *argv[])
 {
@@ -54,54 +92,43 @@ int main(int argc, char *argv[])
 		exit(-1);
 	}
 
-	int x, y;
+	Game game = {};
 
-	/* for (y = 0; y < FB_HEIGHT; ++y) { */
-	/* 	for (x = 0; x < FB_WIDTH; ++x) { */
-	/* 		fb[x+y*FB_WIDTH] = RED; */
-	/* 	} */
-	/* } */
+	game.framebuffer = fb;
+	game.framebuffer_fp = fp_fb;
+	game.framebuffer_width = DISPLAY_WIDTH;
+	game.framebuffer_height = DISPLAY_HEIGHT;
+	game.board.width = DISPLAY_WIDTH / 10;
+	game.board.height = DISPLAY_HEIGHT / 10;
+	game.board.tiles = calloc(game.board.width * game.board.height / 2, 1);
 
-	for (y = 0; y < FB_HEIGHT; ++y) {
-		for (x = 0; x < FB_WIDTH; ++x) {
-			int i = (x + y * FB_WIDTH);
-			fb[i] = COLOR(x * RMAX / FB_WIDTH,
-						  0,
-						  y * BMAX / FB_HEIGHT);
-		}
-	}
+	memset(fb, 0, FB_SIZE);
+	blit_screen(&game);
 
-	struct fb_copyarea rect;
 
-	rect.dx = 0;
-	rect.dy = 0;
-	rect.width = FB_WIDTH;
-	rect.height = FB_HEIGHT;
-	//rect.sx = 0;
-	//rect.sy = 0;
-
-	ioctl(fp_fb, 0x4680, &rect);
+	struct timespec tick_begin;
+	tick_begin = read_time();
 
 	for (;;) {
-		unsigned char button_state, button_down, button_up;
-
-		if (read(fp_gamepad, &button_state, 1) < 0) {
+		if (read(fp_gamepad, &game.input, 1) < 0) {
 			perror("gamepad read");
 			exit(-1);
 		}
 
-		button_down =  button_state & ~prev_button_state;
-		button_up   = ~button_state &  prev_button_state;
+		game.input_down =  game.input & ~prev_button_state;
+		game.input_up   = ~game.input &  prev_button_state;
 
-		if (button_down != 0) {
-			printf("button down: %02x\n", button_down);
-		}
+		prev_button_state = game.input;
 
-		if (button_up != 0) {
-			printf("button up:   %02x\n", button_up);
-		}
+		game_update_and_render(&game);
 
-		prev_button_state = button_state;
+		struct timespec tick_end = read_time();
+		struct timespec tick_duration = timespec_diff(tick_begin, tick_end);
+		struct timespec tick_remaining = timespec_diff(tick_duration, frame_duration);
+
+		nanosleep(&tick_remaining, NULL);
+
+		tick_begin = read_time();
 	}
 	
 
@@ -110,3 +137,6 @@ int main(int argc, char *argv[])
 
 	exit(EXIT_SUCCESS);
 }
+
+#include "snake.c"
+#include "utils.c"
