@@ -1,0 +1,111 @@
+/*
+ * This is a Linux kernel module for interfacing with the TDT4258 game pad.
+ */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/ioport.h>
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <asm/io.h>
+
+#define GPIO_PC_BASE 0x40006048
+
+#define GPIO_CTRL     (0x00)
+#define GPIO_MODEL    (0x04)
+#define GPIO_MODEH    (0x08)
+#define GPIO_DOUT     (0x0c)
+#define GPIO_DOUTSET  (0x10)
+#define GPIO_DOUTCLR  (0x14)
+#define GPIO_DOUTTGL  (0x18)
+#define GPIO_DIN      (0x1c)
+#define GPIO_PINLOCKN (0x20)
+
+static void *gpio_memory;
+static struct cdev gamepad_cdev;
+dev_t gamepad_dev_id;
+
+static int gamepad_open(struct inode *inode, struct file *filp)
+{
+	return -1;
+}
+
+static int gamepad_release(struct inode *inode, struct file *filp)
+{
+	return -1;
+}
+
+static ssize_t gamepad_read(struct file *filp, char __user *buff, size_t count, loff_t *offp)
+{
+	return -1;
+}
+
+static ssize_t gamepad_write(struct file *filp, char __user *buff, size_t count, loff_t *offp)
+{
+	return -1;
+}
+
+static struct file_operations gamepad_fops = {
+	.owner = THIS_MODULE,
+	.read = gamepad_read,
+	.write = gamepad_write,
+	.open = gamepad_open,
+	.release = gamepad_release,
+}
+
+static int __init gamepad_init(void)
+{
+	struct resource *gpio_memory_resource;
+	int err;
+
+	printk("Hello World, here is your module speaking\n");
+
+	gpio_memory_resource = request_mem_region(GPIO_PC_BASE, 9*sizeof(uint32_t), "gpio_pc");
+
+	if (!gpio_memory_resource) {
+		printk(KERN_EMERG "Could not allocate GPIO registers.\n");
+		return -1;
+	}
+
+	gpio_memory = ioremap_nocache(GPIO_PC_BASE, 9*sizeof(uint32_t));
+
+	iowrite32(2, (unsigned char*)gpio_memory + GPIO_CTRL);	
+	iowrite32(0x33333333, (unsigned char*)gpio_memory + GPIO_MODEL);	
+	iowrite32(0xff, (unsigned char*)gpio_memory + GPIO_DOUT);	
+
+
+	err = alloc_chrdev_region(&gamepad_dev_id, 0, 1, "gamepad");
+
+
+	if (err != 0) {
+		printk(KERN_EMERG "Could not allocate chrdev for gamepad. (%i)\n", err);
+		return -1;
+	}
+
+	cdev_init(&gamepad_cdev, &gamepad_fops);
+
+
+
+
+	cdev_add(&gamepad_cdev, gamepad_dev_id, 1);
+
+	return 0;
+}
+
+static void __exit gamepad_cleanup(void)
+{
+	cdev_del(&gamepad_cdev);
+	unregister_chrdev_region(gamepad_dev_id, 1);
+	iounmap(gpio_memory);
+	release_mem_region(GPIO_PC_BASE, 9*sizeof(uint32_t));
+
+	printk("Short life for a small module...\n");
+}
+
+module_init(gamepad_init);
+module_exit(gamepad_cleanup);
+
+MODULE_DESCRIPTION("Small module, demo only, not very useful.");
+MODULE_LICENSE("GPL");
+
