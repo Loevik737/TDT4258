@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 		    timespec_diff(tick_duration, frame_duration);
 
 		while (nanosleep(&tick_remaining, &tick_remaining) == -1
-				&& errno == EINTR) ;
+		       && errno == EINTR) ;
 
 		tick_begin = read_time();
 	}
@@ -80,4 +80,3 @@ int main(int argc, char *argv[])
 
 	exit(EXIT_SUCCESS);
 }
-

@@ -252,9 +252,8 @@ void game_update_snake(Game * game, int snake)
 {
 	bool skip_shrink = false;
 	uint8_t next_dir =
-	    SNAKE_DIR(get_tile
-		      (game, game->board.snakes[snake].head.x,
-		       game->board.snakes[snake].head.y));
+	    SNAKE_DIR(get_tile(game, game->board.snakes[snake].head.x,
+			       game->board.snakes[snake].head.y));
 	if (next_dir < DIR_LEFT || next_dir > DIR_DOWN) {
 		print_error("game", "Invalid next direction. Moving right.");
 		next_dir = DIR_RIGHT;
@@ -296,9 +295,8 @@ void game_update_snake(Game * game, int snake)
 		uint8_t prev_tail_tile =
 		    get_tile(game, prev_tail.x, prev_tail.y);
 
-		vec2 next_tail =
-		    move_and_wrap(&game->board, prev_tail,
-				  SNAKE_DIR(prev_tail_tile));
+		vec2 next_tail = move_and_wrap(&game->board, prev_tail,
+					       SNAKE_DIR(prev_tail_tile));
 		v2_set(game->board.snakes[snake].tail, next_tail);
 
 		set_tile(game, prev_tail.x, prev_tail.y, TILE_NONE);

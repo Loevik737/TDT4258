@@ -46,8 +46,5 @@ void nsleep(uint64_t nsec)
 	ts.tv_sec = nsec / NSEC;
 	ts.tv_nsec = nsec % NSEC;
 
-	while (nanosleep(&ts, &ts) == -1
-		       && errno == EINTR) ;
+	while (nanosleep(&ts, &ts) == -1 && errno == EINTR) ;
 }
-
-

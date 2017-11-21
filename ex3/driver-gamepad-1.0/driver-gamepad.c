@@ -71,13 +71,16 @@ static int gamepad_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static ssize_t gamepad_read(struct file *filp, char __user *buff, size_t count, loff_t *offp)
+static ssize_t gamepad_read(struct file *filp, char __user * buff, size_t count,
+			    loff_t * offp)
 {
 	unsigned long err;
 	unsigned char button_state;
 	unsigned int gpio_din;
 
-	gpio_din = ioread32((unsigned char*)device.gpio_memory + GPIO_PC_BASE + GPIO_DIN);	
+	gpio_din =
+	    ioread32((unsigned char *)device.gpio_memory + GPIO_PC_BASE +
+		     GPIO_DIN);
 	button_state = ~(gpio_din & 0xff);
 
 	err = copy_to_user(buff, &button_state, 1);
@@ -96,12 +99,12 @@ static struct file_operations gamepad_fops = {
 	.read = gamepad_read,
 };
 
-static irqreturn_t gpio_irq_handler(int irq, void * dev_id)
+static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
 	unsigned int gpio_if;
-	
-	gpio_if = ioread32((unsigned char*)device.gpio_memory + GPIO_IF);	
-	iowrite32(gpio_if, (unsigned char*)device.gpio_memory + GPIO_IFC);	
+
+	gpio_if = ioread32((unsigned char *)device.gpio_memory + GPIO_IF);
+	iowrite32(gpio_if, (unsigned char *)device.gpio_memory + GPIO_IFC);
 
 	if (!device.first_interrupt_handled) {
 		device.first_interrupt_handled = 1;
@@ -153,7 +156,8 @@ static int __init gamepad_init(void)
 	// Initialize chrdev
 	err = alloc_chrdev_region(&device.dev_id, 0, 1, MODNAME);
 	if (err) {
-		printk(KERN_WARNING MODNAME ": Could not allocate chrdev for gamepad. (%i)\n", err);
+		printk(KERN_WARNING MODNAME
+		       ": Could not allocate chrdev for gamepad. (%i)\n", err);
 		cleanup_error(ERR_ALLOC_CHRDEV);
 		return err;
 	}
@@ -162,28 +166,37 @@ static int __init gamepad_init(void)
 	device.cdev.owner = THIS_MODULE;
 	device.cdev.ops = &gamepad_fops;
 
-
 	// Set up GPIO
-	gpio_memory_resource = request_mem_region(GPIO_BASE, GPIO_LENGTH, MODNAME);
+	gpio_memory_resource =
+	    request_mem_region(GPIO_BASE, GPIO_LENGTH, MODNAME);
 	if (!gpio_memory_resource) {
 		err = -1;
-		printk(KERN_WARNING MODNAME ": Could not allocate GPIO registers.\n");
+		printk(KERN_WARNING MODNAME
+		       ": Could not allocate GPIO registers.\n");
 		cleanup_error(ERR_REQUEST_GPIO_MEM);
 		return err;
 	}
 
 	device.gpio_memory = ioremap_nocache(GPIO_BASE, GPIO_LENGTH);
 
-	iowrite32(2, (unsigned char*)device.gpio_memory + GPIO_PC_BASE + GPIO_CTRL);	
-	iowrite32(0x33333333, (unsigned char*)device.gpio_memory + GPIO_PC_BASE + GPIO_MODEL);	
-	iowrite32(0xff, (unsigned char*)device.gpio_memory + GPIO_PC_BASE + GPIO_DOUT);	
-	
-	iowrite32(0x22222222, (unsigned char*)device.gpio_memory + GPIO_EXTIPSELL);	
-	iowrite32(0xff, (unsigned char*)device.gpio_memory + GPIO_EXTIFALL);	
+	iowrite32(2,
+		  (unsigned char *)device.gpio_memory + GPIO_PC_BASE +
+		  GPIO_CTRL);
+	iowrite32(0x33333333,
+		  (unsigned char *)device.gpio_memory + GPIO_PC_BASE +
+		  GPIO_MODEL);
+	iowrite32(0xff,
+		  (unsigned char *)device.gpio_memory + GPIO_PC_BASE +
+		  GPIO_DOUT);
+
+	iowrite32(0x22222222,
+		  (unsigned char *)device.gpio_memory + GPIO_EXTIPSELL);
+	iowrite32(0xff, (unsigned char *)device.gpio_memory + GPIO_EXTIFALL);
 
 	err = cdev_add(&device.cdev, device.dev_id, 1);
 	if (err) {
-		printk(KERN_WARNING MODNAME ": Could not add gamepad. (%i)\n", err);
+		printk(KERN_WARNING MODNAME ": Could not add gamepad. (%i)\n",
+		       err);
 		cleanup_error(ERR_CDEV_ADD);
 		return err;
 	}
@@ -191,32 +204,37 @@ static int __init gamepad_init(void)
 	device.class = class_create(THIS_MODULE, MODNAME);
 	if (IS_ERR(device.class)) {
 		err = PTR_ERR(device.class);
-		printk(KERN_WARNING MODNAME ": Could not create class for the device. (%i)\n", err);
+		printk(KERN_WARNING MODNAME
+		       ": Could not create class for the device. (%i)\n", err);
 		cleanup_error(ERR_CLASS_CREATE);
 		return err;
 	}
 
-	chrdev = device_create(device.class, NULL, device.dev_id, NULL, MODNAME);
+	chrdev =
+	    device_create(device.class, NULL, device.dev_id, NULL, MODNAME);
 	if (IS_ERR(chrdev)) {
 		err = PTR_ERR(chrdev);
-		printk(KERN_WARNING MODNAME ": Could not create device. (%i)\n", err);
+		printk(KERN_WARNING MODNAME ": Could not create device. (%i)\n",
+		       err);
 		cleanup_error(ERR_DEVICE_CREATE);
 		return err;
 	}
-	
 	// Set up interrupt registers
-	iowrite32(0xff, (unsigned char*)device.gpio_memory + GPIO_IEN);	
-	iowrite32(0, (unsigned char*)device.gpio_memory + GPIO_IF);	
-	iowrite32(0, (unsigned char*)device.gpio_memory + GPIO_IFC);	
+	iowrite32(0xff, (unsigned char *)device.gpio_memory + GPIO_IEN);
+	iowrite32(0, (unsigned char *)device.gpio_memory + GPIO_IF);
+	iowrite32(0, (unsigned char *)device.gpio_memory + GPIO_IFC);
 
-	err = request_irq(GPIO_IRQ_EVEN, &gpio_irq_handler, 0, MODNAME, &device);
+	err =
+	    request_irq(GPIO_IRQ_EVEN, &gpio_irq_handler, 0, MODNAME, &device);
 	if (err != 0) {
-		printk(KERN_WARNING MODNAME ": Could not register interrupt handler. (%i)\n", err);
+		printk(KERN_WARNING MODNAME
+		       ": Could not register interrupt handler. (%i)\n", err);
 	}
 
 	err = request_irq(GPIO_IRQ_ODD, &gpio_irq_handler, 0, MODNAME, &device);
 	if (err != 0) {
-		printk(KERN_WARNING MODNAME ": Could not register interrupt handler. (%i)\n", err);
+		printk(KERN_WARNING MODNAME
+		       ": Could not register interrupt handler. (%i)\n", err);
 	}
 
 	printk(KERN_INFO MODNAME ": Initialized\n");
