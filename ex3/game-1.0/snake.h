@@ -6,7 +6,7 @@
 
 #include "utils.h"
 
-#define FRAME_RATE 60
+#define FRAME_RATE 6
 #define DISPLAY_WIDTH 320
 #define DISPLAY_HEIGHT 240
 
@@ -33,10 +33,6 @@ typedef struct {
 #define v2_add(lhs, rhs) (vec2){lhs.x + rhs.x, lhs.y + rhs.y}
 #define v2_sub(lhs, rhs) (vec2){lhs.x - rhs.x, lhs.y - rhs.y}
 #define v2_set(dest, val) dest.x=val.x;dest.y=val.y;
-
-/* #define PLAYER_TEXT "Plaer n  000" */
-/* #define PLAYER_TEXT_ID_POS (sizeof("Player ")-1) */
-/* #define PLAYER_TEXT_SCORE_POS (sizeof("Player n  ")-1) */
 
 /*
   A tile is represeted by a 4 bit integer.
@@ -85,8 +81,6 @@ typedef struct {
 #define SNAKE_NR(tile) ((tile & 0x8) >> 3)
 
 #define SNAKE_FLAG(snake) (snake << 3)
-
-#define TICK_INTERVAL 10
 
 /*
   I prefer this kind of string, where the length is known, to cstrings,

@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <error.h>
+#include <errno.h>
 
 void print_info(const char *fmt, ...)
 {

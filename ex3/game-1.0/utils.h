@@ -1,7 +1,7 @@
 #ifndef GAME_UTILS_H
 #define GAME_UTILS_H
 
-#include <stdarg.h>
+#include <stdint.h>
 #define NSEC (1000000000)
 
 void print_info(const char *fmt, ...);

@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "font.h"
 #include "graphics.h"
 
 void set_tile(Game * game, int x, int y, uint8_t tile)
@@ -306,51 +305,6 @@ void game_update_snake(Game * game, int snake)
 	}
 }
 
-void game_reset(Game * game)
-{
-	game->board.snakes[0].color = BLUE;
-	game->board.snakes[1].color = RED;
-
-	/* Clear framebuffer */
-	memset(game->framebuffer, 0,
-	       game->framebuffer_width * game->framebuffer_height *
-	       sizeof(Color));
-	blit_screen(game);
-
-	/* Clear gamefield */
-	memset(game->board.tiles, 0,
-	       game->board.width * game->board.height / 2);
-
-	/* Reset snake 0 */
-	game->board.snakes[0].head =
-	    V2(game->board.width / 4, game->board.height / 2);
-	game->board.snakes[0].tail =
-	    V2(game->board.width / 4 - 1, game->board.height / 2);
-	set_tile(game, game->board.snakes[0].head.x,
-		 game->board.snakes[0].head.y,
-		 TILE_SNAKE_RIGHT | SNAKE_FLAG(0));
-	set_tile(game, game->board.snakes[0].tail.x,
-		 game->board.snakes[0].tail.y,
-		 TILE_SNAKE_RIGHT | SNAKE_FLAG(0));
-	game->board.snakes[0].segments = 2;
-
-	/* Reset snake 1 */
-	game->board.snakes[1].head =
-	    V2(3 * game->board.width / 4, game->board.height / 2);
-	game->board.snakes[1].tail =
-	    V2(3 * game->board.width / 4 + 1, game->board.height / 2);
-	set_tile(game, game->board.snakes[1].head.x,
-		 game->board.snakes[1].head.y, TILE_SNAKE_LEFT | SNAKE_FLAG(1));
-	set_tile(game, game->board.snakes[1].tail.x,
-		 game->board.snakes[1].tail.y, TILE_SNAKE_LEFT | SNAKE_FLAG(1));
-	game->board.snakes[1].segments = 2;
-
-	place_fruit(game);
-
-	game->board.ticks_to_step = TICK_INTERVAL;
-	game->board.round_initialized = true;
-}
-
 String uint8_to_str(String buffer, uint8_t n)
 {
 	String result;
@@ -393,6 +347,55 @@ void draw_player_scores(Game * game)
 			game->framebuffer_width - (3 * 4 * 10), 0, 3);
 }
 
+void game_reset(Game * game)
+{
+	game->board.snakes[0].color = BLUE;
+	game->board.snakes[1].color = RED;
+
+	/* Clear framebuffer */
+	memset(game->framebuffer, 0,
+	       game->framebuffer_width * game->framebuffer_height *
+	       sizeof(Color));
+	blit_screen(game);
+
+	/* Clear gamefield */
+	memset(game->board.tiles, 0,
+	       game->board.width * game->board.height / 2);
+
+	/* Reset snake 0 */
+	game->board.snakes[0].head =
+	    V2(game->board.width / 4, game->board.height / 2);
+	game->board.snakes[0].tail =
+	    V2(game->board.width / 4 - 1, game->board.height / 2);
+	set_tile(game, game->board.snakes[0].head.x,
+		 game->board.snakes[0].head.y,
+		 TILE_SNAKE_RIGHT | SNAKE_FLAG(0));
+	set_tile(game, game->board.snakes[0].tail.x,
+		 game->board.snakes[0].tail.y,
+		 TILE_SNAKE_RIGHT | SNAKE_FLAG(0));
+	game->board.snakes[0].segments = 2;
+
+	/* Reset snake 1 */
+	game->board.snakes[1].head =
+	    V2(3 * game->board.width / 4, game->board.height / 2);
+	game->board.snakes[1].tail =
+	    V2(3 * game->board.width / 4 + 1, game->board.height / 2);
+	set_tile(game, game->board.snakes[1].head.x,
+		 game->board.snakes[1].head.y, TILE_SNAKE_LEFT | SNAKE_FLAG(1));
+	set_tile(game, game->board.snakes[1].tail.x,
+		 game->board.snakes[1].tail.y, TILE_SNAKE_LEFT | SNAKE_FLAG(1));
+	game->board.snakes[1].segments = 2;
+
+	place_fruit(game);
+
+	/* Only draw player scores here. That area of the screen is never
+	 * obstructued or update during normal play.
+	 */
+	draw_player_scores(game);
+
+	game->board.round_initialized = true;
+}
+
 void game_init(Game * game)
 {
 	game->board.width = DISPLAY_WIDTH / 10;
@@ -419,15 +422,8 @@ void game_update_and_render(Game * game)
 		game_reset(game);
 	}
 
-
-	game->board.ticks_to_step -= 1;
-	if (game->board.ticks_to_step == 0) {
-		game->board.ticks_to_step = TICK_INTERVAL;
-		game_update_snake(game, 0);
-		game_update_snake(game, 1);
-	}
-
-	draw_player_scores(game);
+	game_update_snake(game, 0);
+	game_update_snake(game, 1);
 
 	if (game->board.round_initialized && game->disable_blit) {
 		game->disable_blit = false;

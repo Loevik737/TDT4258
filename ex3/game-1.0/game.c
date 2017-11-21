@@ -81,12 +81,3 @@ int main(int argc, char *argv[])
 	exit(EXIT_SUCCESS);
 }
 
-/*
-	Note: I currently was unable to compile this as multiple units, so I just
-	include everything here. This still works as intended, and should have
-	worked as multiple separate units.
- */
-#include "snake.c"
-#include "utils.c"
-#include "graphics.c"
-#include "gamepad.c"
